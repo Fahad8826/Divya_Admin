@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:admin/Controller/usercontroller.dart';
 import 'package:admin/Crop/helperclass.dart' as AppHelper;
 import 'package:admin/Voice/admin_audio_listener.dart';
@@ -10,6 +12,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get/get.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class IndividualUserDetails extends StatefulWidget {
   final String userId;
@@ -59,14 +62,15 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
   );
 
   // State variables
+  bool _isLogin = true;
   bool _isActive = true;
   String? _imageUrl;
   File? _selectedImage;
   bool _isEditing = false;
   bool _isLoading = false;
-  bool _passwordVisible = false;
   String? _selectedGender;
   String? _selectedRole;
+  String? deviceId;
   Map<String, dynamic>? _locationData;
 
   @override
@@ -79,6 +83,7 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
   void _initializeData() {
     _selectedGender = widget.userData['gender'];
     _isActive = widget.userData['isActive'] ?? true;
+    _isLogin = widget.userData['isLoggedIn'] ?? true;
     _imageUrl = widget.userData['imageUrl'];
     _selectedRole = widget.userData['role'] ?? 'salesmen';
   }
@@ -93,6 +98,16 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
     _passwordController.dispose();
     _placeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openMap() async {
+    final lat = _locationData!['latitude'] ?? "N/A";
+    final lng = _locationData!['longitude'] ?? "N/A";
+    log("Opening map for coordinates: $lat, $lng");
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+    await launchUrl(url);
   }
 
   Future<void> _fetchLocationData() async {
@@ -184,6 +199,8 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
         'gender': _selectedGender,
         'role': _selectedRole,
         'isActive': _isActive,
+        'isLoggedIn': _isLogin,
+        'deviceId': deviceId,
         'imageUrl': newImageUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -220,11 +237,11 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
+            content: const Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text('User updated successfully'),
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('User updated successfully'),
               ],
             ),
             backgroundColor: Colors.green,
@@ -363,69 +380,6 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
     }
   }
 
-  // Future<void> _pickImageWithCropCompress(
-  //   ImageSource source,
-  //   bool isUserImage,
-  // ) async {
-  //   try {
-  //     final XFile? pickedImage = await picker.pickImage(
-  //       source: source,
-  //       maxWidth: 800, // Adjusted for better quality
-  //       maxHeight: 800,
-  //       imageQuality: 85, // Balanced quality and size
-  //     );
-
-  //     if (pickedImage != null) {
-  //       File image = File(pickedImage.path);
-
-  //       // Show loading indicator
-  //       showDialog(
-  //         context: context,
-  //         barrierDismissible: false,
-  //         builder: (context) =>
-  //             const Center(child: CircularProgressIndicator()),
-  //       );
-
-  //       try {
-  //         // Compress the image
-  //         File? compressedImage = await AppHelper.compress(image: image);
-  //         if (compressedImage == null) {
-  //           Navigator.pop(context);
-  //           _showSnackBar('Failed to compress image', isError: true);
-  //           return;
-  //         }
-
-  //         // Crop the image
-  //         File? croppedImage = await AppHelper.cropImage(compressedImage);
-  //         Navigator.pop(context);
-
-  //         if (croppedImage == null) {
-  //           _showSnackBar('Image cropping cancelled', isError: true);
-  //           return;
-  //         }
-
-  //         // Update state with processed image
-  //         setState(() {
-  //           _selectedImage = croppedImage;
-  //         });
-
-  //         // Log sizes for debugging
-  //         final sizeInKbBefore = image.lengthSync() / 1024;
-  //         final sizeInKbAfter = croppedImage.lengthSync() / 1024;
-  //         print('Before Processing: ${sizeInKbBefore.toStringAsFixed(2)} KB');
-  //         print('After Processing: ${sizeInKbAfter.toStringAsFixed(2)} KB');
-  //       } catch (e) {
-  //         Navigator.pop(context);
-  //         _showSnackBar('Error processing image: $e', isError: true);
-  //       }
-  //     } else {
-  //       _showSnackBar('No image selected', isError: true);
-  //     }
-  //   } catch (e) {
-  //     _showSnackBar('Error picking image: $e', isError: true);
-  //   }
-  // }
-
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -549,12 +503,13 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
               const SizedBox(height: 24),
               _buildLocationCard(),
             ],
-            // if (_isEditing) ...[
-            //   const SizedBox(height: 24),
-            //   _buildSecurityCard(),
-            // ],
+
             const SizedBox(height: 24),
             _buildStatusCard(),
+
+            const SizedBox(height: 24),
+
+            // _buildStatusCard2(),
             if (widget.userData['role'] != 'maker') ...[
               const SizedBox(height: 32),
               _buildMonitorButton(),
@@ -583,7 +538,7 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
                     ? NetworkImage(_imageUrl!)
                     : null,
                 child: _selectedImage == null && _imageUrl == null
-                    ? Icon(
+                    ? const Icon(
                         Icons.person,
                         size: avatarRadius * 0.8,
                         color: Colors.grey,
@@ -709,7 +664,7 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
+          borderSide: const BorderSide(
             color: _iconColor,
             width: 2,
           ), // Use custom color for focused border
@@ -773,50 +728,71 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
       ).format(timestamp.toDate());
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Colors.white, // Explicitly set card color to white
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey[200]!),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+    return InkWell(
+      onTap: _openMap,
+      child: Card(
+        margin: EdgeInsets.zero,
+        color: Colors.transparent, // Make card itself transparent
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: Colors.grey[200]!),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            image: const DecorationImage(
+              image: AssetImage(
+                'assets/images/map.jpg',
+              ), // your background image
+              fit: BoxFit.cover, // cover, contain, or fill
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.map_outlined, color: _iconColor), // Use custom color
-                SizedBox(width: 10),
-                Text(
-                  'Location Information',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.map_outlined,
+                      color: Colors.black, // Icon color for contrast
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Location Information',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black, // Text color for contrast
+                      ),
+                    ),
+                  ],
                 ),
+                const Divider(height: 24, thickness: 0.5, color: Colors.black),
+                _buildInfoRow(
+                  'Address',
+                  _locationData?['reverseGeocodedAddress'] ?? 'Not available',
+                ),
+                _buildInfoRow(
+                  'Coordinates',
+                  _locationData != null &&
+                          _locationData!['latitude'] != null &&
+                          _locationData!['longitude'] != null
+                      ? 'Lat: ${_locationData!['latitude'].toStringAsFixed(4)}, Lng: ${_locationData!['longitude'].toStringAsFixed(4)}'
+                      : 'Not available',
+                ),
+                _buildInfoRow('Last Update', formattedDate),
               ],
             ),
-            const Divider(height: 24, thickness: 0.5),
-            _buildInfoRow(
-              'Address',
-              _locationData?['reverseGeocodedAddress'] ?? 'Not available',
-            ),
-            _buildInfoRow(
-              'Coordinates',
-              _locationData != null &&
-                      _locationData!['latitude'] != null &&
-                      _locationData!['longitude'] != null
-                  ? 'Lat: ${_locationData!['latitude'].toStringAsFixed(4)}, Lng: ${_locationData!['longitude'].toStringAsFixed(4)}'
-                  : 'Not available',
-            ),
-            _buildInfoRow('Last Update', formattedDate),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildSecurityCard() {
+  Widget _buildStatusCard2() {
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white, // Explicitly set card color to white
@@ -833,31 +809,48 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
             const Row(
               children: [
                 Icon(
-                  Icons.security_outlined,
+                  Icons.settings_outlined,
                   color: _iconColor,
                 ), // Use custom color
                 SizedBox(width: 10),
                 Text(
-                  'Security',
+                  'Login Status',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const Divider(height: 24, thickness: 0.5),
-            _buildTextField(
-              _passwordController,
-              'New Password (optional)',
-              Icons.lock_outline,
-              obscureText: !_passwordVisible,
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _passwordVisible ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey[600],
+            Row(
+              children: [
+                Icon(
+                  _isActive
+                      ? Icons.check_circle_outline
+                      : Icons.cancel_outlined,
+                  color: _isActive ? Colors.green[600] : Colors.red[600],
+                  size: 20,
                 ),
-                onPressed: () =>
-                    setState(() => _passwordVisible = !_passwordVisible),
-              ),
-              validator: (v) => _validate(v, 'Password'),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Login Status')),
+                if (_isEditing)
+                  Switch(
+                    value: _isLogin,
+                    onChanged: (value) {
+                      setState(() {
+                        _isLogin = value;
+                        deviceId = null; // Reset deviceId here
+                      });
+                    },
+                    activeColor: Colors.green,
+                  )
+                else
+                  Text(
+                    _isLogin ? 'LogIn' : 'LogOut',
+                    style: TextStyle(
+                      color: _isActive ? Colors.green[700] : Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -936,14 +929,22 @@ class _IndividualUserDetailsState extends State<IndividualUserDetails> {
             width: 90,
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
+                color: Color.fromARGB(255, 20, 4, 147),
               ),
             ),
           ),
           const SizedBox(width: 16),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Color.fromARGB(255, 20, 4, 147),
+              ),
+            ),
+          ),
         ],
       ),
     );

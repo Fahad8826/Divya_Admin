@@ -14,7 +14,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class Dashboard extends StatelessWidget {
+class Dashboard extends StatelessWidget {      
   Dashboard({super.key});
   final HomeController controller = Get.put(HomeController());
 
@@ -226,17 +226,10 @@ class Dashboard extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [
             Color.fromARGB(255, 209, 52, 67),
-            Color.fromARGB(255, 209, 63, 87),
+            Color.fromARGB(255, 193, 22, 51),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -443,7 +436,7 @@ class Dashboard extends StatelessWidget {
                               return Text(
                                 value.toInt().toString(),
                                 style: TextStyle(
-                                  color: const Color(0xFF64748B),
+                                  color: const Color.fromARGB(255, 19, 20, 21),
                                   fontSize: screenSize.width * 0.028,
                                 ),
                               );
@@ -506,17 +499,20 @@ class Dashboard extends StatelessWidget {
                             .toList(), // Filter to current month only
                         isCurved: true,
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                          colors: [
+                            Color.fromARGB(255, 209, 52, 67),
+                            Color.fromARGB(255, 193, 22, 51),
+                          ],
                         ),
                         barWidth: 3,
                         dotData: FlDotData(
                           show: true,
                           getDotPainter: (spot, percent, barData, index) {
                             return FlDotCirclePainter(
-                              radius: 5,
-                              color: const Color(0xFF3B82F6),
-                              strokeWidth: 3,
-                              strokeColor: Colors.white,
+                              radius: 2,
+                              color: const Color.fromARGB(255, 29, 15, 11),
+                              strokeWidth: 2,
+                              strokeColor: const Color.fromARGB(255, 167, 45, 8),
                             );
                           },
                         ),
